@@ -1,5 +1,8 @@
 # FurnaceTrace
 
+> [!NOTE]
+> This is an course-design project for *2025 Fall* _Comprehensive Training on IoT_ by student ID: 0055713db0a7edac6c4d1743a6ca0fcd9aebe8b6d2656fb03cb4dfadc731ed5f (SHA256)
+
 FurnaceTrace is a furnace admission traceability system built as a course project. It tracks a basket from RTSP QR-code detection through MES eligibility checks, FUXA/MQTT control of simulated equipment, execution feedback, and PostgreSQL archiving. A Vue workbench shows live state, history, and alarms. A separate notifier service supports per-user Telegram Bot pairing.
 
 The project covers **furnace admission only**. The camera, sensors, door, and temperature source can be simulated as separate processes. It does not implement a real PLC, furnace exit, or a complete external MES. The simulated demo still exercises the RTSP, FUXA, MQTT, and PostgreSQL paths. Real IP cameras and PLCs have not been validated.
