@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Furnace MQTT messages",
+  "$defs": {
+    "DeviceState": {
+      "type": "object",
+      "description": "MQTT state 原文；values 字段按 kind 使用 present/inFurnace、doorOpen/doorClosed、lampOn、temperatureC（摄氏度），以及 executionCount。",
+      "required": [
+        "deviceId",
+        "furnaceId",
+        "kind",
+        "bootId",
+        "seq",
+        "observedAt",
+        "values"
+      ],
+      "properties": {
+        "deviceId": {
+          "type": "string"
+        },
+        "furnaceId": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "sensor",
+            "door",
+            "lamp",
+            "temperature"
+          ]
+        },
+        "bootId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "seq": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "values": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "commandId": {
+          "type": "string"
+        },
+        "executionStatus": {
+          "type": "string",
+          "enum": [
+            "IDLE",
+            "ACCEPTED",
+            "COMPLETED",
+            "REJECTED"
+          ]
+        }
+      }
+    },
+    "DeviceCommand": {
+      "oneOf": [
+        {
+          "properties": {
+            "action": {
+              "enum": [
+                "SET_TEMPERATURE"
+              ]
+            }
+          },
+          "required": [
+            "temperatureC"
+          ]
+        },
+        {
+          "properties": {
+            "action": {
+              "enum": [
+                "OPEN",
+                "CLOSE",
+                "RESET",
+                "ALARM_ON",
+                "ALARM_OFF"
+              ]
+            }
+          }
+        }
+      ],
+      "description": "SET_TEMPERATURE 由 FUXA 现场输入生成，只用于温度模拟器，必须提供有限的 temperatureC；保留启动编号、有效期和去重约束。",
+      "type": "object",
+      "required": [
+        "commandId",
+        "cycleId",
+        "deviceId",
+        "furnaceId",
+        "targetBootId",
+        "action",
+        "issuedAt",
+        "expiresAt"
+      ],
+      "properties": {
+        "commandId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "cycleId": {
+          "type": "string"
+        },
+        "deviceId": {
+          "type": "string"
+        },
+        "furnaceId": {
+          "type": "string"
+        },
+        "temperatureC": {
+          "type": "number",
+          "format": "double",
+          "description": "SET_TEMPERATURE 必填，摄氏度"
+        },
+        "targetBootId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "OPEN",
+            "CLOSE",
+            "RESET",
+            "ALARM_ON",
+            "ALARM_OFF",
+            "SET_TEMPERATURE"
+          ]
+        },
+        "issuedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/DeviceState"
+    },
+    {
+      "$ref": "#/$defs/DeviceCommand"
+    }
+  ]
+}

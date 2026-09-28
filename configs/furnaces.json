@@ -1,0 +1,13 @@
+[
+  {
+    "id": "f1",
+    "name": "一号热处理炉",
+    "sensor": "f1-sensor",
+    "door": "f1-door",
+    "lamp": "f1-lamp",
+    "temperature": "f1-temperature",
+    "camera": "f1-camera",
+    "visionUrl": "http://vision:8080",
+    "previewUrl": "/media/f1/index.m3u8"
+  }
+]

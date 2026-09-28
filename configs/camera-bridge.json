@@ -1,0 +1,7 @@
+{
+  "enabled": false,
+  "cameraHost": "192.0.2.1",
+  "cameraPort": 554,
+  "proxyHost": "127.0.0.1",
+  "proxyPort": 1080
+}

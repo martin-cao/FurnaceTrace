@@ -1,0 +1,440 @@
+{
+  "version": "1.00",
+  "server": {
+    "id": "0",
+    "name": "FUXA Server",
+    "type": "FuxaServer",
+    "property": {}
+  },
+  "devices": {
+    "mqtt-lab": {
+      "id": "mqtt-lab",
+      "name": "入炉设备 MQTT",
+      "type": "MQTTclient",
+      "enabled": true,
+      "polling": 100,
+      "property": {
+        "address": "mqtt://mosquitto:1883"
+      },
+      "tags": {
+        "f1-sensor-state": {
+          "id": "f1-sensor-state",
+          "name": "f1-sensor-state",
+          "type": "raw",
+          "address": "iot/v1/devices/f1-sensor/state",
+          "memaddress": "iot/v1/devices/f1-sensor/state",
+          "options": {
+            "subs": "iot/v1/devices/f1-sensor/state"
+          },
+          "daq": {
+            "enabled": false,
+            "interval": 60
+          },
+          "init": ""
+        },
+        "f1-door-state": {
+          "id": "f1-door-state",
+          "name": "f1-door-state",
+          "type": "raw",
+          "address": "iot/v1/devices/f1-door/state",
+          "memaddress": "iot/v1/devices/f1-door/state",
+          "options": {
+            "subs": "iot/v1/devices/f1-door/state"
+          },
+          "daq": {
+            "enabled": false,
+            "interval": 60
+          },
+          "init": ""
+        },
+        "f1-door-command": {
+          "id": "f1-door-command",
+          "name": "f1-door-command",
+          "type": "raw",
+          "address": "iot/v1/devices/f1-door/command",
+          "memaddress": "iot/v1/devices/f1-door/command",
+          "options": {
+            "pubs": [],
+            "retain": false
+          },
+          "daq": {
+            "enabled": false,
+            "interval": 60
+          },
+          "init": ""
+        },
+        "f1-lamp-state": {
+          "id": "f1-lamp-state",
+          "name": "f1-lamp-state",
+          "type": "raw",
+          "address": "iot/v1/devices/f1-lamp/state",
+          "memaddress": "iot/v1/devices/f1-lamp/state",
+          "options": {
+            "subs": "iot/v1/devices/f1-lamp/state"
+          },
+          "daq": {
+            "enabled": false,
+            "interval": 60
+          },
+          "init": ""
+        },
+        "f1-lamp-command": {
+          "id": "f1-lamp-command",
+          "name": "f1-lamp-command",
+          "type": "raw",
+          "address": "iot/v1/devices/f1-lamp/command",
+          "memaddress": "iot/v1/devices/f1-lamp/command",
+          "options": {
+            "pubs": [],
+            "retain": false
+          },
+          "daq": {
+            "enabled": false,
+            "interval": 60
+          },
+          "init": ""
+        },
+        "f1-temperature-state": {
+          "id": "f1-temperature-state",
+          "name": "f1-temperature-state",
+          "type": "raw",
+          "address": "iot/v1/devices/f1-temperature/state",
+          "memaddress": "iot/v1/devices/f1-temperature/state",
+          "options": {
+            "subs": "iot/v1/devices/f1-temperature/state"
+          },
+          "daq": {
+            "enabled": false,
+            "interval": 60
+          },
+          "init": ""
+        },
+        "f1-temperature-command": {
+          "id": "f1-temperature-command",
+          "name": "f1-temperature-command",
+          "type": "raw",
+          "address": "iot/v1/devices/f1-temperature/command",
+          "memaddress": "iot/v1/devices/f1-temperature/command",
+          "options": {
+            "pubs": [],
+            "retain": false
+          },
+          "daq": {
+            "enabled": false,
+            "interval": 60
+          },
+          "init": "",
+          "scaleWriteFunction": "s_f1_set_temperature"
+        },
+        "f1-sensor-view-present": {
+          "id": "f1-sensor-view-present",
+          "name": "入口到位",
+          "type": "raw",
+          "address": "iot/v1/devices/f1-sensor/state",
+          "memaddress": "iot/v1/devices/f1-sensor/state",
+          "options": {
+            "subs": "iot/v1/devices/f1-sensor/state"
+          },
+          "scaleReadFunction": "s_f1_present",
+          "daq": {
+            "enabled": false,
+            "interval": 60
+          }
+        },
+        "f1-door-view-doorOpen": {
+          "id": "f1-door-view-doorOpen",
+          "name": "炉门状态",
+          "type": "raw",
+          "address": "iot/v1/devices/f1-door/state",
+          "memaddress": "iot/v1/devices/f1-door/state",
+          "options": {
+            "subs": "iot/v1/devices/f1-door/state"
+          },
+          "scaleReadFunction": "s_f1_doorOpen",
+          "daq": {
+            "enabled": false,
+            "interval": 60
+          }
+        },
+        "f1-sensor-view-inFurnace": {
+          "id": "f1-sensor-view-inFurnace",
+          "name": "入炉到位",
+          "type": "raw",
+          "address": "iot/v1/devices/f1-sensor/state",
+          "memaddress": "iot/v1/devices/f1-sensor/state",
+          "options": {
+            "subs": "iot/v1/devices/f1-sensor/state"
+          },
+          "scaleReadFunction": "s_f1_inFurnace",
+          "daq": {
+            "enabled": false,
+            "interval": 60
+          }
+        },
+        "f1-lamp-view-lampOn": {
+          "id": "f1-lamp-view-lampOn",
+          "name": "声光报警",
+          "type": "raw",
+          "address": "iot/v1/devices/f1-lamp/state",
+          "memaddress": "iot/v1/devices/f1-lamp/state",
+          "options": {
+            "subs": "iot/v1/devices/f1-lamp/state"
+          },
+          "scaleReadFunction": "s_f1_lampOn",
+          "daq": {
+            "enabled": false,
+            "interval": 60
+          }
+        },
+        "f1-temperature-view-temperatureC": {
+          "id": "f1-temperature-view-temperatureC",
+          "name": "炉温",
+          "type": "raw",
+          "address": "iot/v1/devices/f1-temperature/state",
+          "memaddress": "iot/v1/devices/f1-temperature/state",
+          "options": {
+            "subs": "iot/v1/devices/f1-temperature/state"
+          },
+          "scaleReadFunction": "s_f1_temperatureC",
+          "daq": {
+            "enabled": false,
+            "interval": 60
+          }
+        }
+      }
+    }
+  },
+  "hmi": {
+    "layout": {
+      "start": "furnace-view",
+      "autoresize": true,
+      "showdev": true,
+      "navigation": {
+        "items": [],
+        "mode": "over",
+        "type": "text"
+      },
+      "header": {
+        "title": "入炉现场监控",
+        "items": []
+      }
+    },
+    "views": [
+      {
+        "id": "furnace-view",
+        "name": "入炉现场",
+        "type": "svg",
+        "profile": {
+          "width": 1280,
+          "height": 720,
+          "bkcolor": "#111b27"
+        },
+        "items": {
+          "svg-ext-value-f1-present": {
+            "id": "svg-ext-value-f1-present",
+            "name": "入口到位",
+            "type": "svg-ext-value",
+            "property": {
+              "variableId": "f1-sensor-view-present",
+              "readonly": true,
+              "ranges": [],
+              "actions": [],
+              "events": []
+            }
+          },
+          "svg-ext-value-f1-doorOpen": {
+            "id": "svg-ext-value-f1-doorOpen",
+            "name": "炉门状态",
+            "type": "svg-ext-value",
+            "property": {
+              "variableId": "f1-door-view-doorOpen",
+              "readonly": true,
+              "ranges": [],
+              "actions": [],
+              "events": []
+            }
+          },
+          "svg-ext-value-f1-inFurnace": {
+            "id": "svg-ext-value-f1-inFurnace",
+            "name": "入炉到位",
+            "type": "svg-ext-value",
+            "property": {
+              "variableId": "f1-sensor-view-inFurnace",
+              "readonly": true,
+              "ranges": [],
+              "actions": [],
+              "events": []
+            }
+          },
+          "svg-ext-value-f1-lampOn": {
+            "id": "svg-ext-value-f1-lampOn",
+            "name": "声光报警",
+            "type": "svg-ext-value",
+            "property": {
+              "variableId": "f1-lamp-view-lampOn",
+              "readonly": true,
+              "ranges": [],
+              "actions": [],
+              "events": []
+            }
+          },
+          "svg-ext-value-f1-temperatureC": {
+            "id": "svg-ext-value-f1-temperatureC",
+            "name": "炉温",
+            "type": "svg-ext-value",
+            "property": {
+              "variableId": "f1-temperature-view-temperatureC",
+              "readonly": true,
+              "ranges": [],
+              "actions": [],
+              "events": []
+            }
+          },
+          "svg-ext-html_input-f1-temperature": {
+            "id": "svg-ext-html_input-f1-temperature",
+            "name": "模拟炉温输入",
+            "type": "svg-ext-html_input",
+            "property": {
+              "variableId": "f1-temperature-command",
+              "readonly": false,
+              "ranges": [],
+              "actions": [],
+              "events": [],
+              "options": {
+                "type": "number",
+                "numeric": true,
+                "updated": false,
+                "readonly": false
+              }
+            }
+          }
+        },
+        "variables": {
+          "f1-sensor-view-present": {
+            "id": "f1-sensor-view-present",
+            "name": "入口到位",
+            "device": "mqtt-lab"
+          },
+          "f1-door-view-doorOpen": {
+            "id": "f1-door-view-doorOpen",
+            "name": "炉门状态",
+            "device": "mqtt-lab"
+          },
+          "f1-sensor-view-inFurnace": {
+            "id": "f1-sensor-view-inFurnace",
+            "name": "入炉到位",
+            "device": "mqtt-lab"
+          },
+          "f1-lamp-view-lampOn": {
+            "id": "f1-lamp-view-lampOn",
+            "name": "声光报警",
+            "device": "mqtt-lab"
+          },
+          "f1-temperature-view-temperatureC": {
+            "id": "f1-temperature-view-temperatureC",
+            "name": "炉温",
+            "device": "mqtt-lab"
+          },
+          "f1-temperature-command": {
+            "id": "f1-temperature-command",
+            "name": "模拟炉温输入",
+            "device": "mqtt-lab"
+          }
+        },
+        "svgcontent": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1280\" height=\"720\"><rect width=\"1280\" height=\"720\" fill=\"#111b27\"/><text x=\"60\" y=\"75\" font-family=\"sans-serif\" font-size=\"32\" fill=\"#f4f8fa\">入炉现场监控</text><text x=\"60\" y=\"115\" font-family=\"sans-serif\" font-size=\"17\" fill=\"#93acbc\">设备 → MQTT → FUXA → 入炉业务服务</text><text x=\"60\" y=\"175\" fill=\"#cae0e8\" font-size=\"23\">一号热处理炉</text><rect x=\"60\" y=\"200\" width=\"212\" height=\"132\" rx=\"8\" fill=\"#20313f\"/><text x=\"78\" y=\"235\" fill=\"#91aab9\" font-size=\"16\">入口到位</text><g id=\"svg-ext-value-f1-present\"><text x=\"78\" y=\"290\" fill=\"#b9e8d7\" font-size=\"26\">等待数据</text></g><rect x=\"292\" y=\"200\" width=\"212\" height=\"132\" rx=\"8\" fill=\"#20313f\"/><text x=\"310\" y=\"235\" fill=\"#91aab9\" font-size=\"16\">炉门状态</text><g id=\"svg-ext-value-f1-doorOpen\"><text x=\"310\" y=\"290\" fill=\"#b9e8d7\" font-size=\"26\">等待数据</text></g><rect x=\"524\" y=\"200\" width=\"212\" height=\"132\" rx=\"8\" fill=\"#20313f\"/><text x=\"542\" y=\"235\" fill=\"#91aab9\" font-size=\"16\">入炉到位</text><g id=\"svg-ext-value-f1-inFurnace\"><text x=\"542\" y=\"290\" fill=\"#b9e8d7\" font-size=\"26\">等待数据</text></g><rect x=\"756\" y=\"200\" width=\"212\" height=\"132\" rx=\"8\" fill=\"#20313f\"/><text x=\"774\" y=\"235\" fill=\"#91aab9\" font-size=\"16\">声光报警</text><g id=\"svg-ext-value-f1-lampOn\"><text x=\"774\" y=\"290\" fill=\"#b9e8d7\" font-size=\"26\">等待数据</text></g><rect x=\"988\" y=\"200\" width=\"212\" height=\"132\" rx=\"8\" fill=\"#20313f\"/><text x=\"1006\" y=\"235\" fill=\"#91aab9\" font-size=\"16\">炉温</text><g id=\"svg-ext-value-f1-temperatureC\"><text x=\"1006\" y=\"290\" fill=\"#b9e8d7\" font-size=\"26\">等待数据</text></g><text x=\"60\" y=\"375\" fill=\"#cae0e8\" font-size=\"19\">模拟炉温设定（°C）</text><g id=\"svg-ext-html_input-f1-temperature\"><rect x=\"285\" y=\"348\" width=\"210\" height=\"44\" rx=\"5\" fill=\"#f4f8fa\"/><foreignObject x=\"285\" y=\"348\" width=\"210\" height=\"44\"><div xmlns=\"http://www.w3.org/1999/xhtml\" style=\"width:100%;height:100%\"><input id=\"I-HXI_f1_temperature\" type=\"number\" step=\"0.1\" aria-label=\"模拟炉温\" style=\"box-sizing:border-box;width:100%;height:100%;font-size:22px;padding:6px 12px;color:#18303b;border:0;border-radius:5px\"/></div></foreignObject></g><text x=\"520\" y=\"376\" fill=\"#93acbc\" font-size=\"17\">输入后按 Enter 下发，以右上方回传炉温为准</text><text x=\"60\" y=\"640\" fill=\"#8da5b5\" font-size=\"16\">现场设温经 MQTT 下发到独立模拟器；MES 放行、报警阈值和记录查询在业务工作台。</text></svg>"
+      }
+    ]
+  },
+  "scripts": [
+    {
+      "id": "s_f1_present",
+      "name": "read_f1_present",
+      "code": "const s=JSON.parse(value); return s.values.present ? '有料筐' : '入口空闲';",
+      "sync": true,
+      "mode": "SERVER",
+      "parameters": [
+        {
+          "name": "value",
+          "type": "value",
+          "value": ""
+        }
+      ],
+      "permission": 0
+    },
+    {
+      "id": "s_f1_doorOpen",
+      "name": "read_f1_doorOpen",
+      "code": "const s=JSON.parse(value); return s.values.doorOpen ? '已打开' : '已关闭';",
+      "sync": true,
+      "mode": "SERVER",
+      "parameters": [
+        {
+          "name": "value",
+          "type": "value",
+          "value": ""
+        }
+      ],
+      "permission": 0
+    },
+    {
+      "id": "s_f1_inFurnace",
+      "name": "read_f1_inFurnace",
+      "code": "const s=JSON.parse(value); return s.values.inFurnace ? '已到位' : '未到位';",
+      "sync": true,
+      "mode": "SERVER",
+      "parameters": [
+        {
+          "name": "value",
+          "type": "value",
+          "value": ""
+        }
+      ],
+      "permission": 0
+    },
+    {
+      "id": "s_f1_lampOn",
+      "name": "read_f1_lampOn",
+      "code": "const s=JSON.parse(value); return s.values.lampOn ? '报警中' : '正常';",
+      "sync": true,
+      "mode": "SERVER",
+      "parameters": [
+        {
+          "name": "value",
+          "type": "value",
+          "value": ""
+        }
+      ],
+      "permission": 0
+    },
+    {
+      "id": "s_f1_temperatureC",
+      "name": "read_f1_temperatureC",
+      "code": "const s=JSON.parse(value); return Number(s.values.temperatureC).toFixed(1) + ' °C';",
+      "sync": true,
+      "mode": "SERVER",
+      "parameters": [
+        {
+          "name": "value",
+          "type": "value",
+          "value": ""
+        }
+      ],
+      "permission": 0
+    },
+    {
+      "id": "s_f1_set_temperature",
+      "name": "set_f1_temperature",
+      "code": "const temperatureC=Number(value); if(String(value).trim()==='' || !Number.isFinite(temperatureC)) throw Error('Invalid temperature'); const state=JSON.parse($getTag('f1-temperature-state')); const now=Date.now(); const age=now-Date.parse(state.observedAt); if(!state.bootId || !Number.isFinite(age) || age>3000 || age< -1000) throw Error('Temperature sensor offline'); return JSON.stringify({commandId:require('crypto').randomUUID(),cycleId:'',deviceId:state.deviceId,furnaceId:state.furnaceId,targetBootId:state.bootId,action:'SET_TEMPERATURE',temperatureC,issuedAt:new Date(now).toISOString(),expiresAt:new Date(now+10000).toISOString()});",
+      "sync": true,
+      "mode": "SERVER",
+      "parameters": [
+        {
+          "name": "value",
+          "type": "value",
+          "value": ""
+        }
+      ],
+      "permission": 0
+    }
+  ]
+}

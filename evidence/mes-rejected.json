@@ -1,0 +1,64 @@
+{
+  "cycle": {
+    "mes": {
+      "reason": "QUALITY_PENDING",
+      "snapshot": {
+        "basketNo": "C220001",
+        "basketVersion": 1,
+        "basketEnabled": true,
+        "batchId": "639dad23-4e5e-423b-8b5a-3b83b3b16fe0",
+        "batchNo": "LOT-0922-DEMO",
+        "batchVersion": 1,
+        "batchEnabled": true,
+        "materialName": "铝合金试样",
+        "processSpec": "固溶热处理",
+        "quantity": 12,
+        "qualityStatus": "pending",
+        "checkedAt": "2026-09-22T07:19:37.664393167Z"
+      },
+      "basketNo": "C220001",
+      "result": 2,
+      "message": "批次尚未通过质检"
+    },
+    "id": "e51dc4f7-e3bd-4c5c-b2b5-db404ecd0e7d",
+    "furnaceId": "f1",
+    "basketNo": "C220001",
+    "rawCode": "C220001",
+    "status": "BLOCKED",
+    "reason": "MES_REJECTED",
+    "createdAt": "2026-09-22T07:19:37.046929995Z",
+    "updatedAt": "2026-09-22T07:19:37.667817217Z",
+    "completedAt": null
+  },
+  "events": [
+    {
+      "id": "cee5874e-a68d-4dff-8e8c-10e9c5c6533a",
+      "cycleId": "e51dc4f7-e3bd-4c5c-b2b5-db404ecd0e7d",
+      "kind": "SCANNING",
+      "message": "料筐到位，开始扫码",
+      "at": "2026-09-22T07:19:37.04764883Z"
+    },
+    {
+      "id": "4e411876-57c7-4173-9bf3-02e4df82bcb3",
+      "cycleId": "e51dc4f7-e3bd-4c5c-b2b5-db404ecd0e7d",
+      "kind": "VALIDATING",
+      "message": "扫码结果: DECODED",
+      "at": "2026-09-22T07:19:37.581297357Z"
+    },
+    {
+      "id": "42996a1d-b556-42e6-a5ea-52d9aeac7497",
+      "cycleId": "e51dc4f7-e3bd-4c5c-b2b5-db404ecd0e7d",
+      "kind": "MES_RESULT",
+      "message": "QUALITY_PENDING: 批次尚未通过质检",
+      "at": "2026-09-22T07:19:37.665015252Z"
+    },
+    {
+      "id": "2bfbd93f-f7b9-4b3f-9727-db75ea633696",
+      "cycleId": "e51dc4f7-e3bd-4c5c-b2b5-db404ecd0e7d",
+      "kind": "BLOCKED",
+      "message": "MES_REJECTED",
+      "at": "2026-09-22T07:19:37.6679993Z"
+    }
+  ],
+  "commands": []
+}

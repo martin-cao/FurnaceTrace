@@ -1,0 +1,23 @@
+{
+  "result": "PASS",
+  "scenario": "FUXA required in device path",
+  "beforePhase": "IDLE",
+  "afterPhase": "IDLE",
+  "devices": [
+    {
+      "deviceId": "f1-sensor",
+      "online": false,
+      "reason": "SCADA_OFFLINE"
+    },
+    {
+      "deviceId": "f1-door",
+      "online": false,
+      "reason": "SCADA_OFFLINE"
+    },
+    {
+      "deviceId": "f1-lamp",
+      "online": false,
+      "reason": "SCADA_OFFLINE"
+    }
+  ]
+}

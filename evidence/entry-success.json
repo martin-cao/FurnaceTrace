@@ -1,0 +1,135 @@
+{
+  "cycle": {
+    "mes": {
+      "reason": "ALLOWED",
+      "snapshot": {
+        "basketNo": "C220001",
+        "basketVersion": 1,
+        "basketEnabled": true,
+        "batchId": "639dad23-4e5e-423b-8b5a-3b83b3b16fe0",
+        "batchNo": "LOT-0922-DEMO",
+        "batchVersion": 2,
+        "batchEnabled": true,
+        "materialName": "铝合金试样",
+        "processSpec": "固溶热处理",
+        "quantity": 12,
+        "qualityStatus": "passed",
+        "checkedAt": "2026-09-22T07:21:59.653204602Z"
+      },
+      "basketNo": "C220001",
+      "result": 1,
+      "message": "料筐存在，批次质检通过，允许入炉"
+    },
+    "id": "81cbc19b-50ad-4b8c-988c-d2c10da95134",
+    "furnaceId": "f1",
+    "basketNo": "C220001",
+    "rawCode": "C220001",
+    "status": "COMPLETED",
+    "reason": "入炉完成",
+    "createdAt": "2026-09-22T07:21:59.047213794Z",
+    "updatedAt": "2026-09-22T07:22:03.45093335Z",
+    "completedAt": "2026-09-22T07:22:03.45093335Z"
+  },
+  "events": [
+    {
+      "id": "b0dbc012-3117-486b-8aa9-101e030c5708",
+      "cycleId": "81cbc19b-50ad-4b8c-988c-d2c10da95134",
+      "kind": "SCANNING",
+      "message": "料筐到位，开始扫码",
+      "at": "2026-09-22T07:21:59.04907434Z"
+    },
+    {
+      "id": "9fc0b59a-1475-4d62-90cf-c4510cf0611b",
+      "cycleId": "81cbc19b-50ad-4b8c-988c-d2c10da95134",
+      "kind": "VALIDATING",
+      "message": "扫码结果: DECODED",
+      "at": "2026-09-22T07:21:59.581265733Z"
+    },
+    {
+      "id": "25a6f406-3232-4dc3-ae14-135906e86d28",
+      "cycleId": "81cbc19b-50ad-4b8c-988c-d2c10da95134",
+      "kind": "MES_RESULT",
+      "message": "ALLOWED: 料筐存在，批次质检通过，允许入炉",
+      "at": "2026-09-22T07:21:59.654015228Z"
+    },
+    {
+      "id": "61c94ff7-e348-46ed-ab58-b524eb950117",
+      "cycleId": "81cbc19b-50ad-4b8c-988c-d2c10da95134",
+      "kind": "OPENING",
+      "message": "MES 台账校验通过",
+      "at": "2026-09-22T07:21:59.659249782Z"
+    },
+    {
+      "id": "ff269f98-25e9-4ba6-8742-ab7f8494c2e1",
+      "cycleId": "81cbc19b-50ad-4b8c-988c-d2c10da95134",
+      "kind": "WAITING_ENTRY",
+      "message": "炉门已打开",
+      "at": "2026-09-22T07:22:01.051563757Z"
+    },
+    {
+      "id": "d9c3e1b2-dfc8-4dd0-aa94-f540e64b1661",
+      "cycleId": "81cbc19b-50ad-4b8c-988c-d2c10da95134",
+      "kind": "CLOSING",
+      "message": "料筐已进入炉内",
+      "at": "2026-09-22T07:22:01.447612723Z"
+    },
+    {
+      "id": "94d092bd-9afd-4696-9293-93a004305f54",
+      "cycleId": "81cbc19b-50ad-4b8c-988c-d2c10da95134",
+      "kind": "RESETTING",
+      "message": "炉门已关闭，等待复位",
+      "at": "2026-09-22T07:22:02.452904461Z"
+    },
+    {
+      "id": "19054d8f-da49-4020-8b3c-dc04664eaa89",
+      "cycleId": "81cbc19b-50ad-4b8c-988c-d2c10da95134",
+      "kind": "COMPLETED",
+      "message": "入炉完成",
+      "at": "2026-09-22T07:22:03.451364351Z"
+    }
+  ],
+  "commands": [
+    {
+      "command": {
+        "commandId": "45c1185f-99f4-40c2-9336-89381c83763e",
+        "cycleId": "81cbc19b-50ad-4b8c-988c-d2c10da95134",
+        "deviceId": "f1-door",
+        "furnaceId": "f1",
+        "targetBootId": "9a499b9b-e131-4fda-b2eb-7ca1eb42cd99",
+        "action": "OPEN",
+        "issuedAt": "2026-09-22T07:21:59.658367113Z",
+        "expiresAt": "2026-09-22T07:22:09.658367113Z"
+      },
+      "status": "COMPLETED",
+      "attempts": 1
+    },
+    {
+      "command": {
+        "commandId": "a1bc0094-8c30-46b1-a89d-528f47ea4382",
+        "cycleId": "81cbc19b-50ad-4b8c-988c-d2c10da95134",
+        "deviceId": "f1-door",
+        "furnaceId": "f1",
+        "targetBootId": "9a499b9b-e131-4fda-b2eb-7ca1eb42cd99",
+        "action": "CLOSE",
+        "issuedAt": "2026-09-22T07:22:01.447172847Z",
+        "expiresAt": "2026-09-22T07:22:11.447172847Z"
+      },
+      "status": "COMPLETED",
+      "attempts": 1
+    },
+    {
+      "command": {
+        "commandId": "36b4f88b-7b5f-4056-9808-9142ab7d317a",
+        "cycleId": "81cbc19b-50ad-4b8c-988c-d2c10da95134",
+        "deviceId": "f1-door",
+        "furnaceId": "f1",
+        "targetBootId": "9a499b9b-e131-4fda-b2eb-7ca1eb42cd99",
+        "action": "RESET",
+        "issuedAt": "2026-09-22T07:22:02.45145025Z",
+        "expiresAt": "2026-09-22T07:22:12.45145025Z"
+      },
+      "status": "COMPLETED",
+      "attempts": 1
+    }
+  ]
+}

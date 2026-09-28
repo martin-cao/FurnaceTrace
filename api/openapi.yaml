@@ -1,0 +1,2225 @@
+openapi: 3.0.3
+info:
+  title: Furnace Trace 入炉追溯 API
+  version: 0.7.2
+  description: |
+    公共 API 由 core 提供，除登录/注册外需要 HttpOnly Cookie 会话。
+    内部路径的 x-service 标识实际提供该接口的独立服务，使用服务 Bearer Token。
+    普通用户共享只读生产视图，只能管理自己的 Telegram 绑定、偏好和投递记录。
+    补录、复位、报警确认与 FUXA 网页入口要求 admin 角色。时间均为 UTC RFC3339。
+    状态变更接口要求 Idempotency-Key：同一路径、同一键、同一 JSON 内容返回原响应；
+    同一键不同内容返回 409。数据库唯一约束保证并发请求只有一个生效。
+    通用幂等键还包含当前用户作用域。登录/注册、偏好或温度相关 PUT、解绑及配对接口不使用此键；
+    配对码按单次原子消费处理，同一用户对仍存在的同一绑定重试返回当前绑定。
+    已提交的幂等记录保留到显式重置演示数据；未完成记录不得按超时重新执行。
+    202 只表示已接收，不能解释为设备执行完成。设备完成必须匹配 commandId 与 bootId。
+    core 不访问 MQTT，所有设备状态和控制必须经 FUXA 与 scada-adapter。
+    扫码/MES 拒绝或流程异常后自动排队关门、复位，匹配设备反馈后以 ABORTED 归档并恢复持续扫码；
+    无需人工点击复位。设备尚未恢复时自动等待和重试关闭/复位，绝不补发新的开门命令。
+servers:
+  - url: /
+security:
+  - SessionCookie: []
+tags:
+  - name: Public
+  - name: CoreInternal
+  - name: SCADA
+  - name: Vision
+  - name: Notifications
+  - name: MES
+  - name: Simulation
+  - name: Accounts
+  - name: PersonalNotifications
+paths:
+  /api/v1/batches:
+    get:
+      tags:
+      - MES
+      operationId: listBatchRecords
+      summary: 分页查询未删除的台账记录
+      responses:
+        '200':
+          description: 查询结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - name: q
+        in: query
+        schema:
+          type: string
+          maxLength: 80
+    post:
+      tags:
+      - MES
+      operationId: createBatch
+      summary: 管理员创建台账记录；编号不能与历史已删除记录重复
+      responses:
+        '202':
+          $ref: '#/components/responses/Accepted'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+      x-required-role: admin
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchInput'
+  /api/v1/batches/{batchId}:
+    parameters:
+    - $ref: '#/components/parameters/BatchId'
+    get:
+      tags:
+      - MES
+      operationId: getBatch
+      summary: 查询单条台账
+      responses:
+        '200':
+          description: 查询结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Batch'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+    put:
+      tags:
+      - MES
+      operationId: updateBatch
+      summary: 管理员修改台账；版本过期或关联活动周期时返回 409
+      responses:
+        '202':
+          $ref: '#/components/responses/Accepted'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+      x-required-role: admin
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchUpdate'
+    delete:
+      tags:
+      - MES
+      operationId: deleteBatch
+      summary: 管理员逻辑删除台账，保留编号与追溯；料筐占用/使用中或批次仍关联料筐时拒绝
+      responses:
+        '202':
+          $ref: '#/components/responses/Accepted'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+      x-required-role: admin
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogDelete'
+  /api/v1/baskets:
+    get:
+      tags:
+      - MES
+      operationId: listBasketRecords
+      summary: 分页查询未删除的台账记录
+      responses:
+        '200':
+          description: 查询结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BasketPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/PageSize'
+      - name: q
+        in: query
+        schema:
+          type: string
+          maxLength: 80
+      - name: batchId
+        in: query
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags:
+      - MES
+      operationId: createBasket
+      summary: 管理员创建台账记录；编号不能与历史已删除记录重复
+      responses:
+        '202':
+          $ref: '#/components/responses/Accepted'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+      x-required-role: admin
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BasketInput'
+  /api/v1/baskets/{basketNo}:
+    parameters:
+    - $ref: '#/components/parameters/BasketNo'
+    get:
+      tags:
+      - MES
+      operationId: getBasket
+      summary: 查询单条台账
+      responses:
+        '200':
+          description: 查询结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Basket'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+    put:
+      tags:
+      - MES
+      operationId: updateBasket
+      summary: 管理员修改台账；版本过期或关联活动周期时返回 409
+      responses:
+        '202':
+          $ref: '#/components/responses/Accepted'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+      x-required-role: admin
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BasketUpdate'
+    delete:
+      tags:
+      - MES
+      operationId: deleteBasket
+      summary: 管理员逻辑删除台账，保留编号与追溯；料筐占用/使用中或批次仍关联料筐时拒绝
+      responses:
+        '202':
+          $ref: '#/components/responses/Accepted'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+      x-required-role: admin
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogDelete'
+  /api/v1/baskets/{basketNo}/qrcode:
+    parameters:
+    - $ref: '#/components/parameters/BasketNo'
+    get:
+      tags:
+      - MES
+      operationId: basketQRCode
+      summary: 生成普通 QR Code PNG，码内容为完整料筐编号，不代表放行凭证
+      responses:
+        '200':
+          description: 二维码标签
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+  /api/v1/alarm-rules:
+    get:
+      tags:
+      - AlarmRules
+      operationId: listAlarmRules
+      summary: 查询所有未删除的自定义规则及其活动状态（最多 100 条）；普通用户只读
+      responses:
+        '200':
+          description: 规则列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AlarmRule'
+        '401':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+    post:
+      tags:
+      - AlarmRules
+      operationId: createAlarmRule
+      summary: 创建自定义报警规则；条件最多嵌套 4 层、16 个叶子条件
+      x-required-role: admin
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlarmRuleInput'
+      responses:
+        '202':
+          $ref: '#/components/responses/Accepted'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /api/v1/alarm-rules/{ruleId}:
+    parameters:
+    - name: ruleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    put:
+      tags:
+      - AlarmRules
+      operationId: updateAlarmRule
+      summary: 修改规则与通知策略；版本过期拒绝，所属炉子不可更改
+      x-required-role: admin
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlarmRuleUpdate'
+      responses:
+        '202':
+          $ref: '#/components/responses/Accepted'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+    delete:
+      tags:
+      - AlarmRules
+      operationId: deleteAlarmRule
+      summary: 逻辑删除规则并终止其活动报警和后续提醒；已进入发送流程的消息可能仍到达
+      x-required-role: admin
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogDelete'
+      responses:
+        '202':
+          $ref: '#/components/responses/Accepted'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+  /internal/v1/notifications/{alarmId}/cancel-reminders:
+    parameters:
+      - { name: alarmId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [PersonalNotifications]
+      operationId: cancelAlarmReminders
+      x-service: notifier
+      security: [{ ServiceToken: [] }]
+      summary: 故障结束后取消待发送的重复提醒，并阻止迟到的提醒再次排队；幂等
+      responses:
+        '204': { description: 已结束此报警的重复提醒 }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /healthz:
+    get:
+      operationId: health
+      security: []
+      summary: 所有服务提供的进程存活检查
+      responses:
+        '200':
+          description: 进程存活（不代表依赖可用）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+  /readyz:
+    get:
+      operationId: ready
+      security: []
+      summary: 所有服务提供的就绪检查
+      responses:
+        '200':
+          description: 能处理本服务请求
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/auth/register:
+    post:
+      tags: [Accounts]
+      operationId: register
+      security: []
+      summary: 自主注册普通用户并登录；请求不能指定角色
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/Session' }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /api/v1/auth/login:
+    post:
+      tags: [Accounts]
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /api/v1/auth/logout:
+    post:
+      tags: [Accounts]
+      operationId: logout
+      summary: 撤销当前持久会话并清除 Cookie
+      responses:
+        '204': { description: 已退出 }
+        '401': { $ref: '#/components/responses/Error' }
+  /api/v1/me/profile:
+    put:
+      tags: [Accounts]
+      operationId: updateMyProfile
+      summary: 修改本人用户名和显示名称，验证当前密码；用户 ID 和 Telegram 绑定不变
+      description: 用户名大小写不敏感；相同内容重复 PUT 幂等。不接受角色字段。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfileUpdate' }
+      responses:
+        '200':
+          description: 更新后的本人资料
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /api/v1/me/password:
+    put:
+      tags: [Accounts]
+      operationId: changeMyPassword
+      summary: 校验旧密码并修改密码，撤销本人全部会话，要求重新登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasswordChange' }
+      responses:
+        '204': { description: 密码已修改，所有会话已撤销，Cookie 已清除 }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /api/v1/users:
+    get:
+      tags: [Accounts]
+      operationId: listUsers
+      x-required-role: admin
+      summary: 管理员分页查看用户、角色和启用状态；不返回密码、会话或 Telegram 身份
+      parameters: [{ $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/PageSize' }]
+      responses:
+        '200':
+          description: 用户列表
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ManagedUserPage' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /api/v1/users/{userId}/access:
+    parameters: [{ $ref: '#/components/parameters/UserId' }]
+    put:
+      tags: [Accounts]
+      operationId: updateUserAccess
+      x-required-role: admin
+      summary: 修改其他账户角色与启用状态；不能停用或降级最后一个管理员
+      description: |
+        不允许改变自己的角色/启用状态。相同内容重复 PUT 幂等。
+        更改角色或启用状态后撤销目标用户全部会话；停用同时通过持久任务通知 notifier 暂停投递。
+        其他权限修改事务占用锁时立即返回 409 ACCESS_UPDATE_BUSY；服务端处理上限为 5 秒，超时返回 503 ACCESS_UPDATE_TIMEOUT，客户端应查询当前状态核实结果。
+        恢复启用保留原个人偏好，不补发停用期间通知。已经开始发送的消息可能仍到达。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserAccessUpdate' }
+      responses:
+        '200':
+          description: 更新后的用户
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ManagedUser' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/furnaces/{furnaceId}/camera-config:
+    parameters: [{ $ref: '#/components/parameters/FurnaceId' }]
+    get:
+      tags: [Public]
+      operationId: getCameraConfig
+      x-required-role: admin
+      summary: 管理员查看已保存的完整 RTSP 地址与应用状态；响应不缓存，普通用户无权访问
+      responses:
+        '200':
+          description: 摄像头配置状态；已应用不等于视频已连通
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CameraConfig' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      tags: [Public]
+      operationId: configureCamera
+      x-required-role: admin
+      summary: 保存模拟摄像头或外部 RTSP 上游，后台应用到 MediaMTX
+      description: |
+        有活动周期时拒绝修改。RTSP 地址加密持久化，在管理员设置页完整回显并允许编辑；仅接受 rtsp/rtsps。
+        rtspUrl 省略表示保留已保存地址，首次选 rtsp 时必须提供。相同配置重复 PUT 幂等。
+        应用过程禁止开启新周期；切换后留出解码重连时间。配置失败保留待应用状态，可重试或切回模拟源。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CameraConfigUpdate' }
+      responses:
+        '200':
+          description: 配置已保存，查询 applied 和 online 区分应用与连通结果
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CameraConfig' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /internal/v1/account-access:
+    put:
+      tags: [PersonalNotifications]
+      x-service: notifier
+      operationId: syncAccountAccess
+      security: [{ ServiceToken: [] }]
+      summary: 按单调版本同步账号启停；忽略旧版本，停用时取消未发送通知
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccountAccess' }
+      responses:
+        '204': { description: 已应用或已处理该版本 }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/me:
+    get:
+      tags: [Accounts]
+      operationId: currentUser
+      responses:
+        '200':
+          description: 当前登录用户，不含密码或会话密钥
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Error' }
+  /api/v1/me/telegram:
+    get:
+      tags: [PersonalNotifications]
+      operationId: myTelegram
+      responses:
+        '200':
+          description: 本人绑定状态、Bot 链接信息及通知偏好，不暴露 Chat ID
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TelegramState' }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [PersonalNotifications]
+      operationId: unpairTelegram
+      summary: 解除本人绑定，同时取消尚未发送的该绑定通知
+      responses:
+        '204': { description: 已解绑；重复调用无副作用 }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/me/telegram/pair:
+    post:
+      tags: [PersonalNotifications]
+      operationId: pairTelegram
+      summary: 提交 Bot 私聊 /start 返回的配对码；有效期 10 分钟，一次性消费
+      description: 一个网页账户只绑定一个 Telegram 私聊，一个 Telegram 账户不能同时绑定不同网页用户；先解绑才能换绑。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PairRequest' }
+      responses:
+        '200':
+          description: 配对完成
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TelegramState' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/me/notification-preferences:
+    put:
+      tags: [PersonalNotifications]
+      operationId: updateMyNotificationPreferences
+      summary: 全量替换个人偏好；空炉子或类别集合表示不订阅，变更只影响尚未发送及未来通知
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationPreferences' }
+      responses:
+        '200':
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferences' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/furnaces:
+    get:
+      tags: [Public]
+      operationId: listFurnaces
+      responses:
+        '200':
+          description: 全部已配置炉子及实时状态
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Furnace' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/furnaces/{furnaceId}:
+    parameters: [{ $ref: '#/components/parameters/FurnaceId' }]
+    get:
+      tags: [Public]
+      operationId: getFurnace
+      responses:
+        '200':
+          description: 单台炉子的可恢复快照
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Furnace' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/furnaces/{furnaceId}/manual-scans:
+    parameters: [{ $ref: '#/components/parameters/FurnaceId' }]
+    post:
+      tags: [Public]
+      operationId: manualScan
+      summary: 管理员对扫码失败的周期补录；始终执行 MES 校验，操作人取登录身份
+      x-required-role: admin
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ManualScan' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/furnaces/{furnaceId}/resets:
+    parameters: [{ $ref: '#/components/parameters/FurnaceId' }]
+    post:
+      tags: [Public]
+      operationId: resetFurnace
+      summary: 管理员备用复位接口；正常界面由系统自动复位，无需点击
+      description: 请求立即入队；系统最多等待十五秒取得新鲜炉门状态并等待旧命令到期，随后自动关门、复位，以设备匹配反馈中止周期。不要求入口传感器为空或其他设备在线，不将未完成周期记为成功。
+      x-required-role: admin
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OperatorAction' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/cycles:
+    get:
+      tags: [Public]
+      operationId: listCycles
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+        - { name: furnaceId, in: query, schema: { type: string } }
+        - { name: basketNo, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/CycleStatus' } }
+      responses:
+        '200':
+          description: 按创建时间倒序分页
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CyclePage' }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/cycles/{cycleId}:
+    parameters:
+      - { name: cycleId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Public]
+      operationId: getCycle
+      responses:
+        '200':
+          description: 周期及按发生顺序排列的事件与命令
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CycleDetail' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/v1/alarms:
+    get:
+      tags: [Public]
+      operationId: listAlarms
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+        - { name: furnaceId, in: query, schema: { type: string } }
+        - { name: active, in: query, schema: { type: boolean } }
+      responses:
+        '200':
+          description: 活动及历史报警；确认和恢复为不同字段
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlarmPage' }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/v1/alarms/{alarmId}/acknowledgements:
+    parameters:
+      - { name: alarmId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Public]
+      operationId: acknowledgeAlarm
+      summary: 管理员确认已查看，不清除故障，不放行设备
+      x-required-role: admin
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OperatorAction' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/v1/notifications:
+    get:
+      tags: [Public]
+      operationId: listNotifications
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: 仅当前用户的通知投递状态；unknown 表示外部发送结果不确定
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPage' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/events:
+    get:
+      tags: [Public]
+      operationId: eventStream
+      summary: SSE 快照流；连接后立即发送快照，之后状态更新；断线重连重新获取当前快照
+      responses:
+        '200':
+          description: event=state，data 为 StreamSnapshot JSON；不是可重放审计日志
+          content:
+            text/event-stream:
+              schema: { type: string }
+          x-event-schema: { $ref: '#/components/schemas/StreamSnapshot' }
+  /internal/v1/device-states:
+    post:
+      tags: [CoreInternal]
+      x-service: core
+      operationId: ingestDeviceStates
+      security: [{ ServiceToken: [] }]
+      summary: 接收适配器转发的状态；以 deviceId/bootId/seq 去重，离线状态允许重复
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              minItems: 1
+              items: { $ref: '#/components/schemas/DeviceView' }
+      responses:
+        '204': { description: 状态已接收；不是业务完成确认 }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /internal/v1/scan-results:
+    post:
+      tags: [CoreInternal]
+      x-service: core
+      operationId: ingestScanResult
+      security: [{ ServiceToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScanResult' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /internal/v1/barcode-detections:
+    post:
+      tags: [CoreInternal]
+      x-service: core
+      operationId: ingestBarcodeDetection
+      summary: 持续扫码；稳定识别即视为入口到位，空闲时创建周期并进行 MES 校验
+      description: 不再要求入口 present 信号，不创建空画面超时周期。同一码停留只上报一次，移除至少三帧或换码后重新触发。活动周期内的新识别记录为忽略；过期十秒的结果不启动周期。幂等键使用 detectionId。
+      security: [{ ServiceToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BarcodeDetection' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /internal/v1/scada/devices:
+    get:
+      tags: [SCADA]
+      x-service: scada-adapter
+      operationId: scadaDevices
+      security: [{ ServiceToken: [] }]
+      responses:
+        '200':
+          description: 适配器状态快照；FUXA 缓存不代表设备在线
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/DeviceView' }
+        '401': { $ref: '#/components/responses/Error' }
+  /internal/v1/scada/commands:
+    post:
+      tags: [SCADA]
+      x-service: scada-adapter
+      operationId: writeDeviceCommand
+      security: [{ ServiceToken: [] }]
+      summary: 经 FUXA 发送一次；相同 commandId 可重发，由设备幂等执行
+      description: 命令持久化与重试归 core 所有；适配器没有隐藏的发送队列。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeviceCommand' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /internal/v1/scan-sessions:
+    post:
+      tags: [Vision]
+      x-service: vision
+      operationId: createScanSession
+      security: [{ ServiceToken: [] }]
+      summary: 以 sessionId 幂等创建；同时只允许一个未结束会话
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScanSession' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /internal/v1/camera:
+    get:
+      tags: [Vision]
+      x-service: vision
+      operationId: cameraStatus
+      security: [{ ServiceToken: [] }]
+      responses:
+        '200':
+          description: 拉流状态，不包含摄像头凭据或原始 RTSP URL
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CameraState' }
+        '401': { $ref: '#/components/responses/Error' }
+  /internal/v1/notifications:
+    post:
+      tags: [Notifications]
+      x-service: notifier
+      operationId: enqueueNotification
+      security: [{ ServiceToken: [] }]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationRequest' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    get:
+      tags: [Notifications]
+      x-service: notifier
+      operationId: notificationJobs
+      security: [{ ServiceToken: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+        - { name: userId, in: query, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: 持久通知队列
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPage' }
+        '401': { $ref: '#/components/responses/Error' }
+  /internal/v1/users/{userId}/telegram:
+    parameters:
+      - { $ref: '#/components/parameters/UserId' }
+    get:
+      tags: [Notifications]
+      x-service: notifier
+      operationId: userTelegramState
+      security: [{ ServiceToken: [] }]
+      responses:
+        '200':
+          description: 由 core 使用会话中的 userId 调用
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TelegramState' }
+        '401': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Notifications]
+      x-service: notifier
+      operationId: deleteTelegramBinding
+      security: [{ ServiceToken: [] }]
+      responses:
+        '204': { description: 绑定及未发送投递已撤销 }
+        '401': { $ref: '#/components/responses/Error' }
+  /internal/v1/users/{userId}/telegram/pair:
+    parameters:
+      - { $ref: '#/components/parameters/UserId' }
+    post:
+      tags: [Notifications]
+      x-service: notifier
+      operationId: consumePairCode
+      security: [{ ServiceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PairRequest' }
+      responses:
+        '200':
+          description: 原子消费配对码并绑定用户
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TelegramState' }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /internal/v1/users/{userId}/notification-preferences:
+    parameters:
+      - { $ref: '#/components/parameters/UserId' }
+    put:
+      tags: [Notifications]
+      x-service: notifier
+      operationId: setUserNotificationPreferences
+      security: [{ ServiceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationPreferences' }
+      responses:
+        '200':
+          description: 本人偏好已保存
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferences' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+  /internal/v1/mes/baskets/{basketNo}:
+    parameters:
+      - { name: basketNo, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 64 } }
+    get:
+      tags: [MES]
+      x-service: mes
+      operationId: basketEligibility
+      security: [{ ServiceToken: [] }]
+      responses:
+        '200':
+          description: result 1=允许，0=不存在，2=质量异常；通信错误使用非 2xx
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MESResult' }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /internal/v1/sim/state:
+    get:
+      tags: [Simulation]
+      x-service: device-sim
+      operationId: simulatedDeviceState
+      security: [{ ServiceToken: [] }]
+      responses:
+        '200':
+          description: 仅测试检查设备行为，core 不使用此接口读取设备状态
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeviceState' }
+    patch:
+      tags: [Simulation]
+      x-service: device-sim
+      operationId: injectDeviceScenario
+      security: [{ ServiceToken: [] }]
+      summary: 仅模拟环境改变物理输入/故障；不直接修改业务状态
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SimulationInput' }
+      responses:
+        '204': { description: 输入已更新 }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+  /internal/v1/sim/scene:
+    put:
+      tags: [Simulation]
+      x-service: camera-sim
+      operationId: setCameraScene
+      security: [{ ServiceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CameraScene' }
+      responses:
+        '204': { description: 后续视频帧使用新场景 }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    ServiceToken: { type: http, scheme: bearer }
+    SessionCookie: { type: apiKey, in: cookie, name: iot_session }
+  parameters:
+    BatchId:
+      name: batchId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    BasketNo:
+      name: basketNo
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    FurnaceId:
+      name: furnaceId
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[a-zA-Z0-9_-]{1,64}$' }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 128 }
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    PageSize: { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+  responses:
+    Session:
+      description: 会话有效 12 小时，凭据仅通过 HttpOnly SameSite=Strict Cookie 返回
+      headers:
+        Set-Cookie:
+          schema: { type: string }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SessionResponse' }
+    Error:
+      description: 结构化错误；message 不包含凭据或内部堆栈
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/APIError' }
+    Accepted:
+      description: 请求已接收；重复请求返回同一对象，不代表设备执行完成
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Accepted' }
+  schemas:
+    RuleCondition:
+      oneOf:
+      - $ref: '#/components/schemas/RuleConditionLeaf'
+      - $ref: '#/components/schemas/RuleConditionGroup'
+    RuleConditionLeaf:
+      type: object
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          enum:
+          - condition
+        field:
+          type: string
+          enum:
+          - temperatureC
+          - entryPresent
+          - inFurnace
+          - doorOpen
+          - doorClosed
+          - sensorOnline
+          - doorOnline
+          - lampOnline
+          - temperatureOnline
+          - cameraOnline
+          - scanFailed
+          - mesRejected
+          - mesUnavailable
+          - doorTimeout
+          - entryTimeout
+          - resetTimeout
+          - workflowFault
+        operator:
+          type: string
+          enum:
+          - gt
+          - gte
+          - lt
+          - lte
+          - eq
+          - ne
+        value:
+          oneOf:
+          - type: number
+          - type: boolean
+          description: 温度字段使用数值；其他字段使用布尔值且只允许 eq/ne
+      required:
+      - type
+      - field
+      - operator
+      - value
+    RuleConditionGroup:
+      type: object
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          enum:
+          - group
+        logic:
+          type: string
+          enum:
+          - AND
+          - OR
+        children:
+          type: array
+          minItems: 1
+          maxItems: 16
+          items:
+            $ref: '#/components/schemas/RuleCondition'
+      required:
+      - type
+      - logic
+      - children
+    RuleChannels:
+      type: object
+      additionalProperties: false
+      properties:
+        telegram:
+          type: boolean
+        lamp:
+          type: boolean
+      required:
+      - telegram
+      - lamp
+    AlarmRuleInput:
+      type: object
+      additionalProperties: false
+      properties:
+        category: { $ref: '#/components/schemas/NotificationCategory' }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        furnaceId:
+          type: string
+        enabled:
+          type: boolean
+        condition:
+          $ref: '#/components/schemas/RuleCondition'
+        clearCondition:
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/RuleCondition'
+          description: 可选恢复条件；未设置时触发条件明确为假即恢复，无新数据不算恢复
+        channels:
+          $ref: '#/components/schemas/RuleChannels'
+        repeatSeconds:
+          type: integer
+          oneOf:
+          - enum:
+            - 0
+          - minimum: 10
+            maximum: 86400
+          description: 0 表示每次故障仅首次发送；否则按秒重复；重启不补发错过的全部提醒
+        recoveries:
+          type: boolean
+      required:
+      - name
+      - furnaceId
+      - enabled
+      - condition
+      - channels
+      - repeatSeconds
+      - recoveries
+    AlarmRuleUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        category: { $ref: '#/components/schemas/NotificationCategory' }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        furnaceId:
+          type: string
+        enabled:
+          type: boolean
+        condition:
+          $ref: '#/components/schemas/RuleCondition'
+        clearCondition:
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/RuleCondition'
+          description: 可选恢复条件；未设置时触发条件明确为假即恢复，无新数据不算恢复
+        channels:
+          $ref: '#/components/schemas/RuleChannels'
+        repeatSeconds:
+          type: integer
+          oneOf:
+          - enum:
+            - 0
+          - minimum: 10
+            maximum: 86400
+          description: 0 表示每次故障仅首次发送；否则按秒重复；重启不补发错过的全部提醒
+        recoveries:
+          type: boolean
+        version:
+          type: integer
+          minimum: 1
+          format: int64
+      required:
+      - name
+      - furnaceId
+      - enabled
+      - condition
+      - channels
+      - repeatSeconds
+      - recoveries
+      - version
+    AlarmRule:
+      type: object
+      additionalProperties: false
+      properties:
+        category: { $ref: '#/components/schemas/NotificationCategory' }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        furnaceId:
+          type: string
+        enabled:
+          type: boolean
+        condition:
+          $ref: '#/components/schemas/RuleCondition'
+        clearCondition:
+          nullable: true
+          allOf:
+          - $ref: '#/components/schemas/RuleCondition'
+          description: 可选恢复条件；未设置时触发条件明确为假即恢复，无新数据不算恢复
+        channels:
+          $ref: '#/components/schemas/RuleChannels'
+        repeatSeconds:
+          type: integer
+          oneOf:
+          - enum:
+            - 0
+          - minimum: 10
+            maximum: 86400
+          description: 0 表示每次故障仅首次发送；否则按秒重复；重启不补发错过的全部提醒
+        recoveries:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+          format: int64
+        active:
+          type: boolean
+        nextReminderAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - name
+      - furnaceId
+      - enabled
+      - condition
+      - channels
+      - repeatSeconds
+      - recoveries
+      - id
+      - version
+      - active
+      - nextReminderAt
+      - createdAt
+      - updatedAt
+    BatchInput:
+      type: object
+      additionalProperties: false
+      required:
+      - batchNo
+      - materialName
+      - processSpec
+      - qualityStatus
+      - enabled
+      - notes
+      properties:
+        batchNo:
+          type: string
+          pattern: ^[a-zA-Z0-9_-]{1,40}$
+        materialName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        processSpec:
+          type: string
+          maxLength: 200
+        qualityStatus:
+          type: string
+          enum:
+          - pending
+          - passed
+          - failed
+        enabled:
+          type: boolean
+        notes:
+          type: string
+          maxLength: 500
+    BatchUpdate:
+      type: object
+      additionalProperties: false
+      required:
+      - batchNo
+      - materialName
+      - processSpec
+      - qualityStatus
+      - enabled
+      - notes
+      - version
+      properties:
+        batchNo:
+          type: string
+          pattern: ^[a-zA-Z0-9_-]{1,40}$
+        materialName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        processSpec:
+          type: string
+          maxLength: 200
+        qualityStatus:
+          type: string
+          enum:
+          - pending
+          - passed
+          - failed
+        enabled:
+          type: boolean
+        notes:
+          type: string
+          maxLength: 500
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    Batch:
+      type: object
+      additionalProperties: false
+      required:
+      - batchNo
+      - materialName
+      - processSpec
+      - qualityStatus
+      - enabled
+      - notes
+      - version
+      - createdAt
+      - updatedAt
+      - inUse
+      - id
+      properties:
+        batchNo:
+          type: string
+          pattern: ^[a-zA-Z0-9_-]{1,40}$
+        materialName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        processSpec:
+          type: string
+          maxLength: 200
+        qualityStatus:
+          type: string
+          enum:
+          - pending
+          - passed
+          - failed
+        enabled:
+          type: boolean
+        notes:
+          type: string
+          maxLength: 500
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        inUse:
+          type: boolean
+          description: 关联未结束入炉周期
+        id:
+          type: string
+          format: uuid
+    BatchPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Batch'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+    BasketInput:
+      type: object
+      additionalProperties: false
+      required:
+      - basketNo
+      - batchId
+      - quantity
+      - enabled
+      - notes
+      properties:
+        basketNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: 必须完整匹配当前 BASKET_LENGTH / BASKET_PATTERN，默认 7 位字母数字；创建后不可更名
+        batchId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 100000
+        enabled:
+          type: boolean
+        notes:
+          type: string
+          maxLength: 500
+    BasketUpdate:
+      type: object
+      additionalProperties: false
+      required:
+      - basketNo
+      - batchId
+      - quantity
+      - enabled
+      - notes
+      - version
+      properties:
+        basketNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: 必须完整匹配当前 BASKET_LENGTH / BASKET_PATTERN，默认 7 位字母数字；创建后不可更名
+        batchId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 100000
+        enabled:
+          type: boolean
+        notes:
+          type: string
+          maxLength: 500
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    Basket:
+      type: object
+      additionalProperties: false
+      required:
+      - basketNo
+      - batchId
+      - quantity
+      - enabled
+      - notes
+      - version
+      - createdAt
+      - updatedAt
+      - inUse
+      - batchNo
+      - materialName
+      - qualityStatus
+      - batchEnabled
+      - occupied
+      properties:
+        basketNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: 必须完整匹配当前 BASKET_LENGTH / BASKET_PATTERN，默认 7 位字母数字；创建后不可更名
+        batchId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 100000
+        enabled:
+          type: boolean
+        notes:
+          type: string
+          maxLength: 500
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        inUse:
+          type: boolean
+          description: 关联未结束入炉周期
+        batchNo:
+          type: string
+          maxLength: 40
+        materialName:
+          type: string
+          maxLength: 100
+        qualityStatus:
+          type: string
+          enum:
+          - pending
+          - passed
+          - failed
+        batchEnabled:
+          type: boolean
+        occupied:
+          type: boolean
+    BasketPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Basket'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+    CatalogDelete:
+      type: object
+      additionalProperties: false
+      required:
+      - version
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    AdmissionSnapshot:
+      type: object
+      additionalProperties: false
+      required:
+      - basketNo
+      - basketVersion
+      - basketEnabled
+      - batchId
+      - batchNo
+      - batchVersion
+      - batchEnabled
+      - materialName
+      - processSpec
+      - quantity
+      - qualityStatus
+      - checkedAt
+      properties:
+        basketNo:
+          type: string
+          maxLength: 64
+        basketVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        basketEnabled:
+          type: boolean
+        batchId:
+          type: string
+          format: uuid
+        batchNo:
+          type: string
+          maxLength: 40
+        batchVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        batchEnabled:
+          type: boolean
+        materialName:
+          type: string
+          maxLength: 100
+        processSpec:
+          type: string
+          maxLength: 200
+        quantity:
+          type: integer
+        qualityStatus:
+          type: string
+          enum:
+          - pending
+          - passed
+          - failed
+        checkedAt:
+          type: string
+          format: date-time
+    ProfileUpdate:
+      type: object
+      additionalProperties: false
+      required: [username, displayName, currentPassword]
+      properties:
+        username: { type: string, pattern: '^[a-zA-Z0-9_]{3,32}$' }
+        displayName: { type: string, minLength: 1, maxLength: 50 }
+        currentPassword: { type: string, format: password, minLength: 1, maxLength: 72, writeOnly: true }
+    PasswordChange:
+      type: object
+      additionalProperties: false
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword: { type: string, format: password, minLength: 1, maxLength: 72, writeOnly: true }
+        newPassword: { type: string, format: password, minLength: 8, maxLength: 72, writeOnly: true, description: UTF-8 不超过 72 字节 }
+    UserAccessUpdate:
+      type: object
+      additionalProperties: false
+      required: [role, enabled]
+      properties:
+        role: { type: string, enum: [admin, user] }
+        enabled: { type: boolean }
+    ManagedUser:
+      allOf:
+        - { $ref: '#/components/schemas/User' }
+        - type: object
+          required: [enabled, createdAt]
+          properties:
+            enabled: { type: boolean }
+            createdAt: { type: string, format: date-time }
+    ManagedUserPage:
+      type: object
+      required: [items, pagination]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ManagedUser' } }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+    AccountAccess:
+      type: object
+      additionalProperties: false
+      required: [userId, enabled, version]
+      properties:
+        userId: { type: string, format: uuid }
+        enabled: { type: boolean }
+        version: { type: integer, format: int64, minimum: 1 }
+    CameraConfigUpdate:
+      type: object
+      additionalProperties: false
+      required: [mode]
+      properties:
+        mode: { type: string, enum: [simulated, rtsp] }
+        rtspUrl: { type: string, minLength: 1, maxLength: 2048, writeOnly: true, description: 完整 rtsp/rtsps 地址；可含摄像头凭据，仅管理员设置页回显 }
+    CameraConfig:
+      type: object
+      required: [furnaceId, mode, sourceHost, rtspUrl, hasSavedRtsp, revision, applied, online, message]
+      properties:
+        furnaceId: { type: string }
+        mode: { type: string, enum: [simulated, rtsp] }
+        sourceHost: { type: string, description: 当前来源的主机摘要 }
+        rtspUrl: { type: string, readOnly: true, description: 管理员可见的已保存完整 RTSP 地址；无保存地址时为空字符串，不写入日志 }
+        hasSavedRtsp: { type: boolean }
+        revision: { type: integer, format: int64 }
+        applied: { type: boolean }
+        online: { type: boolean }
+        message: { type: string }
+    User:
+      type: object
+      required: [id, username, displayName, role]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        displayName: { type: string }
+        role: { type: string, enum: [admin, user] }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username: { type: string, pattern: '^[a-zA-Z0-9_]{3,32}$' }
+        password: { type: string, format: password, minLength: 1, maxLength: 72 }
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password, displayName]
+      properties:
+        username: { type: string, pattern: '^[a-zA-Z0-9_]{3,32}$' }
+        password: { type: string, format: password, minLength: 8, maxLength: 72, description: 至少 8 字符，UTF-8 编码不超过 72 字节 }
+        displayName: { type: string, minLength: 1, maxLength: 50 }
+    SessionResponse:
+      type: object
+      required: [user, expiresAt]
+      properties:
+        user: { $ref: '#/components/schemas/User' }
+        expiresAt: { type: string, format: date-time }
+    PairRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code: { type: string, minLength: 8, maxLength: 20, description: 8 位字母数字，允许输入分隔横线和小写 }
+    NotificationCategory:
+      type: string
+      enum: [scan, mes, device, workflow, temperature, rules]
+    NotificationPreferences:
+      type: object
+      additionalProperties: false
+      required: [enabled, furnaceIds, categories, recoveries]
+      properties:
+        enabled: { type: boolean, default: true }
+        furnaceIds: { type: array, uniqueItems: true, maxItems: 100, items: { type: string } }
+        categories: { type: array, uniqueItems: true, maxItems: 6, items: { $ref: '#/components/schemas/NotificationCategory' } }
+        recoveries: { type: boolean, default: true }
+    TelegramBinding:
+      type: object
+      required: [displayName, pairedAt]
+      properties:
+        displayName: { type: string }
+        pairedAt: { type: string, format: date-time }
+    TelegramState:
+      type: object
+      required: [botUsername, botConfigured, botOnline, binding, preferences]
+      properties:
+        botUsername: { type: string }
+        botConfigured: { type: boolean }
+        botOnline: { type: boolean }
+        binding:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/TelegramBinding' }]
+        preferences: { $ref: '#/components/schemas/NotificationPreferences' }
+    Health:
+      type: object
+      required: [status, service]
+      properties:
+        status: { type: string, enum: [ok] }
+        service: { type: string }
+    APIError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+    Accepted:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [accepted, ignored] }
+    CycleStatus:
+      type: string
+      enum: [SCANNING, VALIDATING, OPENING, WAITING_ENTRY, CLOSING, RESETTING, NEEDS_INPUT, BLOCKED, COMPLETED, ABORTED]
+    Cycle:
+      type: object
+      required: [id, furnaceId, basketNo, rawCode, status, reason, createdAt, updatedAt]
+      properties:
+        mes:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/MESResult' }]
+        id: { type: string, format: uuid }
+        furnaceId: { type: string }
+        basketNo: { type: string }
+        rawCode: { type: string }
+        status: { $ref: '#/components/schemas/CycleStatus' }
+        reason: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time, nullable: true }
+    CycleEvent:
+      type: object
+      required: [id, cycleId, kind, message, at]
+      properties:
+        id: { type: string, format: uuid }
+        cycleId: { type: string, format: uuid }
+        kind: { type: string }
+        message: { type: string }
+        at: { type: string, format: date-time }
+    CycleDetail:
+      type: object
+      required: [cycle, events, commands]
+      properties:
+        cycle: { $ref: '#/components/schemas/Cycle' }
+        events: { type: array, items: { $ref: '#/components/schemas/CycleEvent' } }
+        commands: { type: array, items: { $ref: '#/components/schemas/CommandRecord' } }
+    DeviceState:
+      type: object
+      description: MQTT state 原文；values 字段按 kind 使用 present/inFurnace、doorOpen/doorClosed、lampOn、temperatureC（摄氏度），以及 executionCount。
+      required: [deviceId, furnaceId, kind, bootId, seq, observedAt, values]
+      properties:
+        deviceId: { type: string }
+        furnaceId: { type: string }
+        kind: { type: string, enum: [sensor, door, lamp, temperature] }
+        bootId: { type: string, format: uuid }
+        seq: { type: integer, format: int64, minimum: 1 }
+        observedAt: { type: string, format: date-time }
+        values: { type: object, additionalProperties: true }
+        commandId: { type: string }
+        executionStatus: { type: string, enum: [IDLE, ACCEPTED, COMPLETED, REJECTED] }
+    DeviceView:
+      type: object
+      required: [deviceId, furnaceId, kind, online, reason, state]
+      properties:
+        deviceId: { type: string }
+        furnaceId: { type: string }
+        kind: { type: string, enum: [sensor, door, lamp, temperature] }
+        online: { type: boolean }
+        reason: { type: string }
+        state:
+          allOf: [{ $ref: '#/components/schemas/DeviceState' }]
+          nullable: true
+    DeviceCommand:
+      oneOf:
+        - properties: { action: { enum: [SET_TEMPERATURE] } }
+          required: [temperatureC]
+        - properties: { action: { enum: [OPEN, CLOSE, RESET, ALARM_ON, ALARM_OFF] } }
+      description: SET_TEMPERATURE 由 FUXA 现场输入生成，只用于温度模拟器，必须提供有限的 temperatureC；保留启动编号、有效期和去重约束。
+      type: object
+      required: [commandId, cycleId, deviceId, furnaceId, targetBootId, action, issuedAt, expiresAt]
+      properties:
+        commandId: { type: string, format: uuid }
+        cycleId: { type: string }
+        deviceId: { type: string }
+        furnaceId: { type: string }
+        temperatureC: { type: number, format: double, description: SET_TEMPERATURE 必填，摄氏度 }
+        targetBootId: { type: string, format: uuid }
+        action: { type: string, enum: [OPEN, CLOSE, RESET, ALARM_ON, ALARM_OFF, SET_TEMPERATURE] }
+        issuedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+    CommandRecord:
+      type: object
+      required: [command, status, attempts]
+      properties:
+        command: { $ref: '#/components/schemas/DeviceCommand' }
+        status: { type: string, enum: [PENDING, ACCEPTED, COMPLETED, EXPIRED, CANCELLED, UNKNOWN] }
+        attempts: { type: integer, minimum: 0 }
+    CameraState:
+      type: object
+      required: [cameraId, online, sessionId, lastFrameAt]
+      properties:
+        cameraId: { type: string }
+        online: { type: boolean }
+        sessionId: { type: string }
+        lastFrameAt: { type: string, format: date-time, nullable: true }
+    Furnace:
+      type: object
+      required: [furnaceId, name, ready, phase, cycle, devices, camera, previewUrl]
+      properties:
+        furnaceId: { type: string }
+        name: { type: string }
+        ready: { type: boolean }
+        phase: { type: string, description: IDLE 或 CycleStatus }
+        cycle:
+          allOf: [{ $ref: '#/components/schemas/Cycle' }]
+          nullable: true
+        devices: { type: array, items: { $ref: '#/components/schemas/DeviceView' } }
+        camera: { $ref: '#/components/schemas/CameraState' }
+        previewUrl: { type: string }
+    BarcodeDetection:
+      type: object
+      additionalProperties: false
+      required: [detectionId, furnaceId, cameraId, rawCode, observedAt]
+      properties:
+        detectionId: { type: string, format: uuid }
+        furnaceId: { type: string }
+        cameraId: { type: string }
+        rawCode: { type: string, minLength: 1, maxLength: 2048 }
+        observedAt: { type: string, format: date-time }
+    ScanSession:
+      type: object
+      required: [sessionId, cycleId, furnaceId, cameraId, expiresAt]
+      properties:
+        sessionId: { type: string, format: uuid }
+        cycleId: { type: string, format: uuid }
+        furnaceId: { type: string }
+        cameraId: { type: string }
+        expiresAt: { type: string, format: date-time }
+    ScanResult:
+      type: object
+      required: [sessionId, cycleId, furnaceId, cameraId, outcome, rawCode, observedAt]
+      properties:
+        sessionId: { type: string, format: uuid }
+        cycleId: { type: string, format: uuid }
+        furnaceId: { type: string }
+        cameraId: { type: string }
+        outcome: { type: string, enum: [DECODED, SCAN_TIMEOUT, CAMERA_OFFLINE, AMBIGUOUS] }
+        rawCode: { type: string, maxLength: 2048 }
+        observedAt: { type: string, format: date-time }
+    ManualScan:
+      type: object
+      additionalProperties: false
+      required: [cycleId, rawCode, reason]
+      properties:
+        cycleId: { type: string, format: uuid }
+        rawCode: { type: string, minLength: 1, maxLength: 2048 }
+        operator: { type: string, maxLength: 80, deprecated: true, description: 忽略此值，审计使用登录用户 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    OperatorAction:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        operator: { type: string, maxLength: 80, deprecated: true, description: 忽略此值，审计使用登录用户 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    Alarm:
+      type: object
+      required: [id, furnaceId, cycleId, code, message, raisedAt, acknowledgedAt, recoveredAt, operator]
+      properties:
+        category: { $ref: '#/components/schemas/NotificationCategory' }
+        ruleId: { type: string, format: uuid }
+        ruleVersion: { type: integer, format: int64 }
+        resolution: { type: string, enum: [condition_cleared, rule_disabled, rule_deleted, rule_migrated], description: 自定义报警结束原因，停用/删除规则不等于现场故障已消除 }
+        lamp: { type: boolean, description: 是否驱动现场声光，缺省为系统报警的 true }
+        id: { type: string, format: uuid }
+        furnaceId: { type: string }
+        cycleId: { type: string }
+        code: { type: string }
+        message: { type: string }
+        raisedAt: { type: string, format: date-time }
+        acknowledgedAt: { type: string, format: date-time, nullable: true }
+        recoveredAt: { type: string, format: date-time, nullable: true }
+        operator: { type: string }
+    NotificationRequest:
+      type: object
+      required: [id, alarmId, furnaceId, kind, text, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        alarmId: { type: string, format: uuid }
+        furnaceId: { type: string }
+        kind: { type: string, enum: [ALARM, RECOVERY, REMINDER] }
+        category: { $ref: '#/components/schemas/NotificationCategory' }
+        text: { type: string, minLength: 1, maxLength: 4000 }
+        createdAt: { type: string, format: date-time }
+    Notification:
+      allOf:
+        - { $ref: '#/components/schemas/NotificationRequest' }
+        - type: object
+          required: [status, attempts, lastError, sentAt, nextAttemptAt]
+          properties:
+            status: { type: string, enum: [pending, sent, failed, unknown, cancelled] }
+            attempts: { type: integer, minimum: 0 }
+            lastError: { type: string }
+            sentAt: { type: string, format: date-time, nullable: true }
+            nextAttemptAt: { type: string, format: date-time }
+    MESResult:
+      type: object
+      required: [basketNo, result, message, reason]
+      description: 从 PostgreSQL 台账校验；0 不存在，1 允许，2 禁用或质检未通过。未知编号不得放行。
+      properties:
+        reason: { type: string }
+        snapshot:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/AdmissionSnapshot' }]
+        basketNo: { type: string }
+        result: { type: integer, enum: [0, 1, 2] }
+        message: { type: string }
+    Pagination:
+      type: object
+      required: [page, pageSize, total]
+      properties:
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer, minimum: 0 }
+    CyclePage:
+      type: object
+      required: [items, pagination]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Cycle' } }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+    AlarmPage:
+      type: object
+      required: [items, pagination]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Alarm' } }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+    NotificationPage:
+      type: object
+      required: [items, pagination]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Notification' } }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+    StreamSnapshot:
+      type: object
+      required: [at, furnaces, activeAlarmCount, catalogVersion, rulesVersion]
+      properties:
+        rulesVersion: { type: integer, format: int64, minimum: 0, description: 自定义报警规则与活动状态版本，变化后刷新规则和报警列表 }
+        catalogVersion: { type: integer, format: int64, minimum: 0, description: 持久台账版本；变化或重连后重新查询列表，不覆盖编辑草稿 }
+        at: { type: string, format: date-time }
+        furnaces: { type: array, items: { $ref: '#/components/schemas/Furnace' } }
+        activeAlarmCount: { type: integer, minimum: 0 }
+    SimulationInput:
+      type: object
+      additionalProperties: false
+      properties:
+        present: { type: boolean }
+        inFurnace: { type: boolean }
+        jammed: { type: boolean }
+        muted: { type: boolean, description: 暂停状态发布以测试过期 }
+        forceClosed: { type: boolean, description: 仅模拟人工消除卡门故障 }
+    CameraScene:
+      type: object
+      additionalProperties: false
+      required: [codes]
+      properties:
+        codes:
+          type: array
+          maxItems: 2
+          items: { type: string, minLength: 1, maxLength: 200 }
+        paused: { type: boolean, default: false }
